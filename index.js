@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const { MongoClient, ServerApiVersion } = require('mongodb');
+var jwt = require('jsonwebtoken');
 const port = process.env.PORT || 5000;
 
 
@@ -20,10 +21,32 @@ const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster
 console.log(uri);
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
+
+
+function verifyJWT(req, res, next) {
+
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+        return res.status(401).send('unauthorized access');
+    }
+
+    const token = authHeader.split(' ')[1];
+
+    jwt.verify(token, process.env.TOKEN, function (err, decoded) {
+        if (err) {
+            return res.status(403).send({ message: 'forbidden access' })
+        }
+        req.decoded = decoded;
+        next();
+    })
+
+}
+
 async function run() {
     try {
         const appointmentOptionsCollections = client.db('doctorsPortal').collection('appointOptions')
         const bookingCollections = client.db('doctorsPortal').collection('bookings')
+        const usersCollections = client.db('doctorsPortal').collection('users')
         //use aggregate to query multiple collection merge data
         app.get('/appointmentOptions', async (req, res) => {
             const date = req.query.date
@@ -47,10 +70,17 @@ async function run() {
         })
 
 
-        app.get('/bookings', async (req, res) => {
+
+
+        app.get('/bookings', verifyJWT, async (req, res) => {
             const email = req.query.email;
+            const decodedEmail = req.decoded.email;
+
+            if (email !== decodedEmail) {
+                return res.status(403).send({ message: 'forbidden access' });
+            }
             const query = { email: email }
-            console.log(query);
+            // console.log(query);
             const bookings = await bookingCollections.find(query).toArray();
             res.send(bookings)
         })
@@ -72,6 +102,28 @@ async function run() {
 
             const result = await bookingCollections.insertOne(bookings);
             res.send(result)
+        })
+
+        //users
+
+        app.get('/jwt', async (req, res) => {
+            const email = req.query.email;
+            const query = { email: email };
+            const user = await usersCollections.findOne(query);
+            if (user) {
+                const token = jwt.sign({ email }, process.env.TOKEN, { expiresIn: '1d' });
+                return res.send({ accessToken: token })
+            }
+
+            res.status(403).send({ accessToken: '' })
+        })
+
+
+        app.post('/users', async (req, res) => {
+            const user = req.body;
+            console.log(user);
+            const result = await usersCollections.insertOne(user);
+            res.send(result);
         })
     }
     finally {
