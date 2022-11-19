@@ -118,6 +118,12 @@ async function run() {
             res.status(403).send({ accessToken: '' })
         })
 
+        app.get('/users', async (re, res) => {
+            const query = {};
+            const cursor = await usersCollections.find(query).toArray();
+            res.send(cursor);
+        })
+
 
         app.post('/users', async (req, res) => {
             const user = req.body;
