@@ -47,6 +47,9 @@ async function run() {
         const appointmentOptionsCollections = client.db('doctorsPortal').collection('appointOptions')
         const bookingCollections = client.db('doctorsPortal').collection('bookings')
         const usersCollections = client.db('doctorsPortal').collection('users')
+        const doctorsCollection = client.db('doctorsPortal').collection('doctors');
+
+
         //use aggregate to query multiple collection merge data
         app.get('/appointmentOptions', async (req, res) => {
             const date = req.query.date
@@ -67,6 +70,12 @@ async function run() {
             })
 
             res.send(options);
+        })
+
+        app.get('/appointmentSpecialty', async (req, res) => {
+            const query = {};
+            const cursor = await appointmentOptionsCollections.find(query).project({ name: 1 }).toArray();
+            res.send(cursor)
         })
 
 
@@ -161,6 +170,21 @@ async function run() {
             const result = await usersCollections.updateOne(filter, updateDoc, options);
             res.send(result);
         })
+
+        //doctors
+
+        app.get('/doctors', async (req, res) => {
+            const query = {};
+            const cursor = await doctorsCollection.find(query).toArray();
+            res.send(cursor);
+        })
+
+
+        app.post('/doctors', async (req, res) => {
+            const doctor = req.body;
+            const result = await doctorsCollection.insertOne(doctor);
+            res.send(result);
+        });
     }
     finally {
 
